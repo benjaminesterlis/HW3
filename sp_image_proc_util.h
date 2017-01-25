@@ -19,7 +19,7 @@ extern "C"{
  * @param nBins - The number of subdivision for the intensity histogram
  * @param imageIndex - The index of the given image
  * @return NULL if str is NULL or nBins <= 0 or allocation error occurred,
- *  otherwise a two dimensional array representing the histogram.
+ *  otherwise a three dimensional array representing the histogram.
  */
 SPPoint** spGetRGBHist(const char* str,int imageIndex, int nBins);
 
