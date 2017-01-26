@@ -10,23 +10,29 @@
 #include <iostream>
 
 using namespace cv;
+using namespace std;
 
-#define report_error(str)\
+#define report_error(str)								\
  	do { 												\
  		printf("Error: %s, line %d\n",(str), __LINE__); \
  		return NULL;								 	\
  	} while(0)
-
 #define report_error_exit(str) 							\
  	do { 												\
  		printf("Error: %s, line %d\n",(str), __LINE__); \
  		exit(-1); 										\
  	} while(0)
-
 #define report_error_ret(str,ret)						\
  	do { 												\
  		printf("Error: %s, line %d\n",(str), __LINE__); \
  		return (ret); 									\
+ 	} while(0)
+
+#define report_error_msg(msg)							\
+ 	do { 												\
+ 		printf("Image cannot be loaded - %s:\n",msg);   \
+		exit(-1);										\
+		}                                               \
  	} while(0)
 
 SPPoint** spGetRGBHist(const char* str,int imageIndex, int nBins){
@@ -47,11 +53,12 @@ SPPoint** spGetRGBHist(const char* str,int imageIndex, int nBins){
 		report_error("can't allocate memory for Histogram");
 
 	//Load image
-	if((src = imread(str,CV_LOAD_IMAGE_COLOR)).empty() )
-		report_error("could't load image");
-
+	if((src = imread(str,CV_LOAD_IMAGE_COLOR)).empty() ){}
+		printf("Image cannot be loaded - %s:\n",str);
+		exit();	
+		}
 	/// Separate the image in 3 places ( B, G and R )
-	std::vector<Mat> bgr_planes;
+	vector<Mat> bgr_planes;
 	split(src, bgr_planes);
 
 	// calc 3 Mat's of B G & R
@@ -93,10 +100,11 @@ double spRGBHistL2Distance(SPPoint** rgbHistA, SPPoint** rgbHistB)
 	return ret;
 }
 
-SPPoint** spGetSiftDescriptors(const char* str, int imageIndex, int nFeaturesToExtract, int *nFeatures)
+SPPoint** spGetSiftDescriptors(const char* str, int imageIndex, 
+							int nFeaturesToExtract, int *nFeatures)
 {
 	Mat src, ds1;
-	std::vector<KeyPoint> kp1;
+	vector<KeyPoint> kp1;
 	int i, j;
 	double data[128];
 	SPPoint** SIFT;
@@ -131,15 +139,29 @@ SPPoint** spGetSiftDescriptors(const char* str, int imageIndex, int nFeaturesToE
 }
 
 int* spBestSIFTL2SquaredDistance(int kClosest, SPPoint* queryFeature,
-		SPPoint*** databaseFeatures, int numberOfImages,
-		int* nFeaturesPerImage)
+							SPPoint*** databaseFeatures, int numberOfImages,
+							int* nFeaturesPerImage)
 {
+	int i, j;
+	SPBPQueue *length_l2 = spBPQueueCreate(kClosest);
+	for (i = 0; i < numberOfImages; ++i)
+	{
+		for (j = 0; j < *nFeaturesPerImage; ++j)
+		{
+			spBPQueueEnqueue(length_l2,i,
+				spPointL2SquaredDistance(databaseFeatures[i][j],queryFeature));
+		}
+	}
+	int *indexes;
 
-
-
-
-
-
-
-	return &0;
-}
+	if ((indexes = (int *)malloc(sizeof(int) *kClosest)) == NULL)
+		report_error("can't allocate memory for indexes");
+	for (i = 0; i < kClosest; ++i)
+	{
+		indexes[i] = (int)spBPQueueMinValue(length_l2);
+		spBPQueueDequeue(length_l2);
+	}
+	
+	spBPQueueDestroy(length_l2);
+	return indexes;
+} // need to free memory in main
