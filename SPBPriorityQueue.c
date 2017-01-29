@@ -106,15 +106,11 @@ void spBPQueueDestroy(SPBPQueue* source)
 	if (source == NULL)
 		return;
 
-	printf("%s\n","1" );
 	if(source->elements == NULL)
 		return; 	
 	
-	printf("%s\n", "2");
 	free(source->elements);
-	printf("%s\n", "3");
 	free(source);
-	printf("%s\n","4" );
 }
 
 /**

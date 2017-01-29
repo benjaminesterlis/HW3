@@ -13,28 +13,28 @@
 using namespace cv;
 using namespace std;
 
-#define report_error(str)								\
- 	do { 												\
- 		printf("Error: %s, line %d\n",(str), __LINE__); \
- 		return NULL;								 	\
- 	} while(0)
-#define report_error_exit(str) 							\
- 	do { 												\
- 		printf("Error: %s, line %d\n",(str), __LINE__); \
- 		exit(-1); 										\
- 	} while(0)
-#define report_error_ret(str,ret)						\
- 	do { 												\
- 		printf("Error: %s, line %d\n",(str), __LINE__); \
- 		return (ret); 									\
- 	} while(0)
-
 #define report_error_msg(msg)							\
  	do { 												\
  		printf("Image cannot be loaded - %s:\n",msg);   \
 		exit(-1);										\
 		}                                               \
  	} while(0)
+
+#define error_msg_ret(msg,ret)							\
+ 	do {												\
+ 		printf("An error occurred - %s\n",(msg));		\
+ 		return (ret);									\
+ 	} while (0)	
+
+#define NBINS_FAIL "nBins must be positive integer"
+#define ALLOC_FAIL "allocation failure"
+#define IMAGE_FAIL "Image cannot be loaded - %s:\n"
+#define HISTS_NULL "rgbHistA or rgbHistB is NULL"
+#define PATH_FAIL "the path give to the function is NULL"
+#define IMAGE_LOAD_FAIL "could't load image"
+#define FEATURES_FAIL "Features is NULL pointer"
+#define N_FEATURES_FAIL "nFeaturesToExtract isn't positive"
+
 
 SPPoint** spGetRGBHist(const char* str,int imageIndex, int nBins){
 
@@ -48,14 +48,14 @@ SPPoint** spGetRGBHist(const char* str,int imageIndex, int nBins){
 	SPPoint** Histogram;
 
 	if ( str == NULL || nBins <= 0)
-		report_error("nBins must be positive integer");
+		error_msg_ret(NBINS_FAIL,NULL);
 
 	if ((Histogram = (SPPoint**)malloc(sizeof(SPPoint*)*3)) == NULL )
-		report_error("can't allocate memory for Histogram");
+		error_msg_ret(ALLOC_FAIL,NULL);
 
 	//Load image
 	if((src = imread(str,CV_LOAD_IMAGE_COLOR)).empty() ){
-		printf("Image cannot be loaded - %s:\n",str);
+		printf(IMAGE_FAIL,str);
 		exit(-1);	
 	}
 	/// Separate the image in 3 places ( B, G and R )
@@ -68,7 +68,7 @@ SPPoint** spGetRGBHist(const char* str,int imageIndex, int nBins){
 	calcHist(&bgr_planes[2], 1, 0, Mat(), r_hist, 1, &nBins, &histRange);
 
 	if (!(data = (double *)malloc(sizeof(double)*nBins)))
-		report_error("can't allocate memory for Histogram data");
+		error_msg_ret(ALLOC_FAIL,NULL);
 
 	//for red
 	for (i = 0; i < r_hist.rows; ++i)
@@ -107,10 +107,10 @@ double spRGBHistL2Distance(SPPoint** rgbHistA, SPPoint** rgbHistB)
 	int i;
 	double ret = 0;
 	if (rgbHistB == NULL || rgbHistA == NULL)
-		report_error_ret("rgbHistA or rgbHistB is NULL", -1);
+		error_msg_ret(HISTS_NULL, -1);
 	for( i = 0; i < 3; ++i)
 		ret += (0.33)*spPointL2SquaredDistance(rgbHistA[i], rgbHistB[i]);
-	
+
 	return ret;
 }
 
@@ -124,30 +124,30 @@ SPPoint** spGetSiftDescriptors(const char* str, int imageIndex,
 	SPPoint** SIFT;
 
 	if (!str)
-		report_error("the path give to the function is NULL");
-	if((src = imread(str,CV_LOAD_IMAGE_COLOR)).empty())
-		report_error("could't load image");
+		error_msg_ret(PATH_FAIL,NULL);
+	if((src = imread(str,CV_LOAD_IMAGE_GRAYSCALE)).empty())
+		error_msg_ret(IMAGE_LOAD_FAIL,NULL);
 	if (!nFeatures)
-		report_error("Features is NULL pointer");
+		error_msg_ret(FEATURES_FAIL,NULL);
 	if (nFeaturesToExtract <= 0)
-		report_error("nFeaturesToExtract isn't positive");
+		error_msg_ret(N_FEATURES_FAIL,NULL);
 
 	Ptr<xfeatures2d::SiftDescriptorExtractor> detect =
-			xfeatures2d::SIFT::create(nFeaturesToExtract);
+            xfeatures2d::SIFT::create(nFeaturesToExtract);
 
-	detect->detect(src, kp1, Mat());
+	detect->detect(src, kp1);
 	detect->compute(src, kp1, ds1);
 
 	*nFeatures = ds1.rows;
 
 
-	if ((SIFT = (SPPoint**)malloc(sizeof(SPPoint*)* (*nFeatures))) == NULL )
-		report_error("can't allocate memory for SIFT");
+	if ((SIFT = (SPPoint**)malloc(sizeof(SPPoint*) * (*nFeatures))) == NULL )
+		error_msg_ret(ALLOC_FAIL,NULL);
 
 	for (i = 0; i < ds1.rows; ++i)
 	{
 		for (j = 0; j < 128 ; ++j)
-			data[j] = cvRound(ds1.at<float>(j,i));
+			data[j] = (double)cvRound(ds1.at<float>(i,j));
 		SIFT[i] = spPointCreate(data,128,imageIndex);
 	}
 	return SIFT;
@@ -159,7 +159,7 @@ int* spBestSIFTL2SquaredDistance(int kClosest, SPPoint* queryFeature,
 {
 	int i, j;
 	SPBPQueue *length_l2 = spBPQueueCreate(kClosest);
-	for (i = 0; i < numberOfImages; ++i)
+	for (i = 0; i < numberOfImages; i++)
 	{
 		for (j = 0; j < *nFeaturesPerImage; ++j)
 		{
@@ -170,10 +170,10 @@ int* spBestSIFTL2SquaredDistance(int kClosest, SPPoint* queryFeature,
 	int *indexes;
 
 	if ((indexes = (int *)malloc(sizeof(int) *kClosest)) == NULL)
-		report_error("can't allocate memory for indexes");
-	for (i = 0; i < kClosest; ++i)
+		error_msg_ret(ALLOC_FAIL,NULL);
+	for (i = 0; i < kClosest; i++)
 	{
-		indexes[i] = (int)spBPQueueMinValue(length_l2);
+		indexes[i] = spBPQueueMinValueIndex(length_l2);
 		spBPQueueDequeue(length_l2);
 	}
 	

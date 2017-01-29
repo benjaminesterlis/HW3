@@ -4,6 +4,7 @@
 #define CANT_ALLOC "allocation failure"
 #define EXIT "Exiting...\n"
 #define SHARP "#"
+#define LOCAL "Nearest images using local descriptors:\n"
 #define GLOBAL "Nearest images using global descriptors:\n"
 #define ENTER_IMAGE "Enter a query image or # to terminate:\n"
 #define N_FEATURE_FAILURE "invalid number of features\n"
@@ -20,7 +21,7 @@
 
 #define error_msg_ret(msg,ret)							\
  	do {												\
- 		printf("An error occurred - %s, line:%d\n",(msg),__LINE__);		\
+ 		printf("An error occurred - %s\n",(msg));		\
  		return (ret);									\
  	} while (0)	
 
@@ -28,6 +29,7 @@ int main(void)
 {
 	int err_flag = 0;
 	SPBPQueue *kClosest;
+	SPBPQueue *best_queue;
 	SPPoint*** hist;
 	SPPoint*** sift; 
 	SPPoint **query_hist;
@@ -99,15 +101,6 @@ int main(void)
 		sift[i] = spGetSiftDescriptors(input_image, i, nFeaturesToExtract, &nFeatures[i]);
 	}
 
-	for (i = 0; i < 3; ++i)
-	{
-		for (j = 0; j < nBins; ++j)
-		{
-			printf("%lf\t", spPointGetAxisCoor(hist[1][i],j+1));
-		}
-	}
-	printf("\n");
-
 	printf(CURRENT_IMAGE);
 	scanf(STRING, current_image);
 	
@@ -119,41 +112,27 @@ int main(void)
 	while(strcmp(current_image,SHARP) != 0){
 		//calc for global descriptor
 		query_hist = spGetRGBHist(current_image,nImg,nBins);
-		printf("%s\n", "q hist");
-		for (i = 0; i < 3; ++i)
-		{
-			for (j = 0; j < nBins; ++j)
-			{
-				printf("%lf\t", spPointGetAxisCoor(query_hist[i],j+1));
-			}
-		}
 
 		for( i = 0; i < nImg; i++){
-			printf("Images NUmber:%d\n",i);
 			l = spRGBHistL2Distance(query_hist,hist[i]);
-			printf("%s ,%lf\n","hello",l );
 			SPBQueue_MGS = spBPQueueEnqueue(kClosest,i, l);
 			if (SP_BPQUEUE_SUCCESS != SPBQueue_MGS &&  SP_BPQUEUE_FULL != SPBQueue_MGS){
 				err_flag = 1;
-				printf("%s:%d\n", "e:1",i);
 				goto sec4;
 			}
 		}
 
-		printq(kClosest,0);
 		// print for globar descriptor
 		printf(GLOBAL);
 		for (i = 0; i < k-1; ++i){
 			min_index = spBPQueueMinValueIndex(kClosest);
 			if(min_index == -1){
 				err_flag = 1;
-				printf("%s\n", "e:2");
 				goto sec4;
 			}
 			printf("%d, ", min_index);
 			if(spBPQueueDequeue(kClosest) != SP_BPQUEUE_SUCCESS){
 				err_flag = 1;
-				printf("%s\n", "e:3");
 				goto sec4;
 			} 
 		}
@@ -161,52 +140,92 @@ int main(void)
 		min_index = spBPQueueMinValueIndex(kClosest);
 		if(min_index == -1){
 			err_flag = 1;
-			printf("%s\n", "e:4");
 			goto sec4;
 		}
+
 		printf("%d\n",min_index);
 		if(spBPQueueDequeue(kClosest) != SP_BPQUEUE_SUCCESS){
 			err_flag = 1;
-			printf("%s\n", "e:5");
 			goto sec4;
 		} 
-
 		//for local descriptor
-		query_sift = spGetSiftDescriptors(current_image, nImg,nFeaturesToExtract, &nFeaturesQ);
+		query_sift = spGetSiftDescriptors(current_image, nImg,
+												nFeaturesToExtract, &nFeaturesQ);
 
 		//malloc for array of Img_indexes
 		if ((Img_Indexes = (int*)calloc( nImg, sizeof(int))) == NULL){
 			err_flag = 1;
-			printf("%s\n", "e:6");
 			goto sec5;
 		}
 
 		//to get the best k indexes
 		for(i = 0; i < nFeaturesQ; ++i){
-			current_feature_best_k = spBestSIFTL2SquaredDistance(k,query_sift[i], sift, nImg, nFeatures); 
+			current_feature_best_k = spBestSIFTL2SquaredDistance(k,query_sift[i],
+												sift, nImg, nFeatures); 
 			for (j = 0; j < k; j++)
 			{
-				printf("%d\n", current_feature_best_k[j]);
 				Img_Indexes[current_feature_best_k[j]]++;
 			}
-		}	
-		qsort(Img_Indexes, k, sizeof(int), cmpfunc);
-
-		for (i = 0; i < k-1; i++){
-			printf("%d, ", Img_Indexes[i]);
 		}
-		printf("%d\n",Img_Indexes[i]);
+		if ((best_queue = spBPQueueCreate(k)) == NULL){
+			err_flag = 1;
+			goto sec6;
+		}
+		for(i = 0; i <nImg ; ++i){
+			 SPBQueue_MGS = spBPQueueEnqueue(best_queue,i,k*nFeaturesQ - Img_Indexes[i]);
+			 if (SP_BPQUEUE_SUCCESS != SPBQueue_MGS &&  SP_BPQUEUE_FULL != SPBQueue_MGS){
+				err_flag = 1;
+				goto sec7;
+			}
+		}
+
+		//print local		
+		printf(LOCAL);
+		for (i = 0; i < k-1; ++i){
+			min_index = spBPQueueMinValueIndex(best_queue);
+			if(min_index == -1){
+				err_flag = 1;
+				goto sec7;
+			}
+			printf("%d, ",min_index);
+			if(spBPQueueDequeue(best_queue) != SP_BPQUEUE_SUCCESS){
+				err_flag = 1;
+				goto sec7;
+			} 
+		}
+
+		min_index = spBPQueueMinValueIndex(best_queue);
+		if(min_index == -1){
+			err_flag = 1;
+			goto sec7;
+		}
+		printf("%d\n",min_index);
+		if(spBPQueueDequeue(best_queue) != SP_BPQUEUE_SUCCESS){
+			err_flag = 1;
+			goto sec7;
+		} 
+
+		printf(CURRENT_IMAGE);
+		scanf(STRING, current_image);
 	}
 
 	//free section
+	sec7:
+		spBPQueueDestroy(best_queue);
+	sec6:
+		free(Img_Indexes);
 	sec5:
 		free(query_sift);
 	sec4:
 		free(query_hist);
 		spBPQueueDestroy(kClosest);
 	sec3:
+		for (i = nImg-1; i >= 0; --i)
+			free(sift[i]);
 		free(sift);//free all that inside
 	sec2:
+		for (i = nImg-1; i >= 0; --i)
+			free(hist[i]);
 		free(hist);//free all that inside
 		free(nFeatures);
 	exit:
