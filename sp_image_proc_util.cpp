@@ -8,7 +8,6 @@
 #include <vector>
 #include <cstdio>
 #include <iostream>
-#include <unistd.h>
 
 using namespace cv;
 using namespace std;
@@ -92,9 +91,9 @@ SPPoint** spGetRGBHist(const char* str,int imageIndex, int nBins){
 	return Histogram;
 	
 	free3:
-		free(Histogram[1]);
+		spPointDestroy(Histogram[1]);
 	free2:
-		free(Histogram[0]);
+		spPointDestroy(Histogram[0]);
 	free1:
 		free(Histogram);
 	free(data);

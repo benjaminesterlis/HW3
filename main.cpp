@@ -167,6 +167,7 @@ int main(void)
 				Img_Indexes[current_feature_best_k[j]]++;
 			}
 		}
+		free(current_feature_best_k);
 		if ((best_queue = spBPQueueCreate(k)) == NULL){
 			err_flag = 1;
 			goto sec6;
