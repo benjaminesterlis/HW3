@@ -5,7 +5,6 @@
 struct sp_bp_queue_t
 {
 	BPQueueElement *elements; // the elemnts will be showed from big to small.
-	int is_empty;
 	int size;
 	int max_size;
 };
@@ -24,7 +23,6 @@ struct sp_bp_queue_t
  * Allocate a new Queue in the memory.
  * New SPBPQueue such that:
  *
- * - is_empty = flag to chack is empty, set to false.
  * - size = the current size of the queue, set to zero.
  * - elements = pointer to the first element in the queue.
  * - max_size = the upper bould of elements in the Queue.
@@ -39,13 +37,12 @@ SPBPQueue* spBPQueueCreate(int maxSize)
 	if (maxSize <= 0 )
 		return NULL;
 
-	SPBPQueue *spq = malloc(sizeof(*spq));
+	SPBPQueue *spq = (SPBPQueue *) malloc(sizeof(SPBPQueue));
 	CheckIfNULL(spq,NULL)
 	
 	if ((spq->elements = (BPQueueElement*) malloc(sizeof(BPQueueElement) * maxSize)) == NULL)	
 		return NULL;
 
-	spq->is_empty = true;
 	spq->size = 0;
 	spq->max_size = maxSize;
 	return spq;
@@ -85,7 +82,6 @@ SPBPQueue* spBPQueueCopy(SPBPQueue* source)
 	SPBPQueue *spcpy = malloc(sizeof(*spcpy));
 	CheckIfNULL(spcpy,NULL)
 
-	spcpy->is_empty = source->is_empty;
 	spcpy->size = source->size;
 	spcpy->max_size = source->max_size;
 
@@ -107,13 +103,18 @@ SPBPQueue* spBPQueueCopy(SPBPQueue* source)
 */
 void spBPQueueDestroy(SPBPQueue* source)
 {
-	if (source != NULL)
-	{
-		if(source->elements != NULL) {	
-			free(source->elements);
-		}
-		free(source);
-	}
+	if (source == NULL)
+		return;
+
+	printf("%s\n","1" );
+	if(source->elements == NULL)
+		return; 	
+	
+	printf("%s\n", "2");
+	free(source->elements);
+	printf("%s\n", "3");
+	free(source);
+	printf("%s\n","4" );
 }
 
 /**
@@ -126,7 +127,6 @@ void spBPQueueClear(SPBPQueue* source)
 {
 	if ( source == NULL)
 		return;
-	source->is_empty = true;
 	source->size = 0;
 
 }
@@ -159,6 +159,7 @@ int spBPQueueGetMaxSize(SPBPQueue* source){
 /**
  * Insert a new BPQueueElement (which will create) to the queue with the corret fields.
  * The Queue is ordinized from big to small,cell[0] is the biggest.
+ * Indexing start from 1 to source->size.
  *
  * @param source - the queue.
  * @param index - the index given.
@@ -167,39 +168,58 @@ int spBPQueueGetMaxSize(SPBPQueue* source){
  */
 SP_BPQUEUE_MSG spBPQueueEnqueue(SPBPQueue* source, int index, double value)
 {
+	if (index <0 || value < 0)
+		return SP_BPQUEUE_INVALID_ARGUMENT;
 	CheckIfNULL(source,SP_BPQUEUE_INVALID_ARGUMENT)
-	
-	//in case the source queue is full
-	if ( source->size == source->max_size)
-	{
-		if (source->elements[0].value < value )
-		{
-			InsertElemNext(source,0,index,value)
-			return SP_BPQUEUE_FULL;
-		}//need to solve when list is full and not the higest value.
-	}
 
-	source->size++;
-	//in case the source queue is empty
+	// size == 0, jsut insert.
 	if (source->size == 0)
-	{
-		InsertElemNext(source, 0, index, value)
+	{	
+		InsertElemNext(source,0,index,value)
+		source->size++;
 		return SP_BPQUEUE_SUCCESS;
 	}
-
-	//otherwise
 	int i;
-	for ( i = source->size; i > 0; i--) 
+	// size = max_size
+	if(source->size == source->max_size)
+	{	
+		if (value > source->elements[0].value)
+			return SP_BPQUEUE_FULL;
+		
+		if ((value == source->elements[0].value) && index >source->elements[0].index)
+			return SP_BPQUEUE_FULL;
+		
+		for ( i = 1; i < source->size; i++ )
+			InsertElemNext(source,i-1,source->elements[i].index,source->elements[i].value)
+		source->size--;
+	}
+	//otherwise
+	for ( i = source->size-1; i >= 0; i--)
 	{
-		InsertElemNext(source, i, source->elements[i-1].index, source->elements[i-1].value)
-		if ( source->elements [i-1].value > value)
+		if (value > source->elements[i].value)
+			InsertElemNext(source,i+1,source->elements[i].index,source->elements[i].value)
+		
+		else if (value == source->elements[i].value)
 		{
-			InsertElemNext(source, i, index, value)
+			if (index > source->elements[i].index)
+				InsertElemNext(source,i+1,source->elements[i].index,source->elements[i].value)
+			else
+			{
+				InsertElemNext(source,i+1,source->elements[i].index,source->elements[i].value)
+				InsertElemNext(source,i,index,value)
+				source->size++;
+				return SP_BPQUEUE_SUCCESS;
+			}
+		}
+		else
+		{
+			InsertElemNext(source,i+1,index,value)
+			source->size++;
 			return SP_BPQUEUE_SUCCESS;
 		}
 	}
-	//incase bigger then all
-	InsertElemNext(source, 0, index, value)
+	InsertElemNext(source,0,index,value)
+	source->size++;
 	return SP_BPQUEUE_SUCCESS;
 }
 
@@ -229,6 +249,7 @@ SP_BPQUEUE_MSG spBPQueueDequeue(SPBPQueue* source)
 SP_BPQUEUE_MSG spBPQueuePeek(SPBPQueue* source, BPQueueElement* res)
 {
 	CheckIfNULL(source,SP_BPQUEUE_INVALID_ARGUMENT)
+	CheckIfNULL(res,SP_BPQUEUE_INVALID_ARGUMENT)
 	if (source->size == 0)
 		return SP_BPQUEUE_EMPTY;
 	res->index = source->elements[source->size -1].index;
@@ -249,6 +270,7 @@ SP_BPQUEUE_MSG spBPQueuePeek(SPBPQueue* source, BPQueueElement* res)
 SP_BPQUEUE_MSG spBPQueuePeekLast(SPBPQueue* source, BPQueueElement* res)
 {
 	CheckIfNULL(source,SP_BPQUEUE_INVALID_ARGUMENT)
+	CheckIfNULL(res,SP_BPQUEUE_INVALID_ARGUMENT)
 	if (source->size == 0)
 		return SP_BPQUEUE_EMPTY;
 	res->index = source->elements[0].index;
@@ -264,7 +286,7 @@ SP_BPQUEUE_MSG spBPQueuePeekLast(SPBPQueue* source, BPQueueElement* res)
  */
 double spBPQueueMinValue(SPBPQueue* source)
 {
-	if (source == NULL || source->is_empty)
+	if (source == NULL || source->size == 0)
 		return -1;
 	return source->elements[source->size - 1].value;//the last element it the lowest.
 }
@@ -275,7 +297,7 @@ double spBPQueueMinValue(SPBPQueue* source)
  */
 double spBPQueueMaxValue(SPBPQueue* source)
 {
-	if (source == NULL || source->is_empty)
+	if (source == NULL || source->size == 0)
 		return -1;
 	return source->elements[0].value;//the first element is the biggest.
 }
@@ -290,7 +312,7 @@ double spBPQueueMaxValue(SPBPQueue* source)
 bool spBPQueueIsEmpty(SPBPQueue* source)
 {
 	CheckIfNULL(source,true)
-	return source->is_empty;
+	return (source->size == 0);
 }
 
 /**
@@ -304,4 +326,33 @@ bool spBPQueueIsFull(SPBPQueue* source)
 {
 	CheckIfNULL(source,true)
 	return (source->size == source->max_size);
+}
+
+void printq(SPBPQueue* source,int axis)
+{
+	int i;
+	for ( i = source->size -1; i >= 0; i--)
+	{
+		switch (axis)
+		{
+			case 0:
+				printf("%lf \t", source->elements[i].value);
+				break;
+			case 1:
+				printf("%d", source->elements[i].index +1);
+				break;
+			case 2:
+				printf("%lf \t", source->elements[i].value);
+				printf("%d \n", source->elements[i].index +1);
+				break;
+		}
+	}
+	printf("\n");
+}
+
+int spBPQueueMinValueIndex(SPBPQueue* source)
+{
+	if (source == NULL || source->size == 0)
+		return -1;
+	return source->elements[source->size - 1].index;//the last element it the lowest.
 }

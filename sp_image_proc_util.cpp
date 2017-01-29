@@ -72,22 +72,34 @@ SPPoint** spGetRGBHist(const char* str,int imageIndex, int nBins){
 
 	//for red
 	for (i = 0; i < r_hist.rows; ++i)
-		data[i] = cvRound(r_hist.at<float>(i,0));
-	Histogram[0] = spPointCreate(data, r_hist.rows, imageIndex);
+		data[i] = cvRound(r_hist.at<float>(i));
+	if ((Histogram[0] = spPointCreate(data, r_hist.rows, imageIndex)) == NULL)
+		goto free1;
 
 	//for green
 	for (i = 0; i < g_hist.rows; ++i)
-		data[i] = cvRound(g_hist.at<float>(i,0));	
-	Histogram[1] = spPointCreate(data, g_hist.rows, imageIndex);
+		data[i] = cvRound(g_hist.at<float>(i));	
+	if ((Histogram[1] = spPointCreate(data, g_hist.rows, imageIndex)) == NULL)
+		goto free2;
 
 	//for blue
 	for (i = 0; i < b_hist.rows; ++i)
-		data[i] = cvRound(b_hist.at<float>(i,0));
-	Histogram[2] = spPointCreate(data, b_hist.rows, imageIndex);
-
+		data[i] = cvRound(b_hist.at<float>(i));
+	if ((Histogram[2] = spPointCreate(data, b_hist.rows, imageIndex)) == NULL)
+		goto free3;
+	
 	free(data);
-
 	return Histogram;
+	
+	free3:
+		free(Histogram[1]);
+	free2:
+		free(Histogram[0]);
+	free1:
+		free(Histogram);
+	free(data);
+	return NULL;
+
 }
 
 double spRGBHistL2Distance(SPPoint** rgbHistA, SPPoint** rgbHistB)
@@ -97,7 +109,8 @@ double spRGBHistL2Distance(SPPoint** rgbHistA, SPPoint** rgbHistB)
 	if (rgbHistB == NULL || rgbHistA == NULL)
 		report_error_ret("rgbHistA or rgbHistB is NULL", -1);
 	for( i = 0; i < 3; ++i)
-		ret += (1/3)*spPointL2SquaredDistance(rgbHistA[i], rgbHistB[i]);
+		ret += (0.33)*spPointL2SquaredDistance(rgbHistA[i], rgbHistB[i]);
+	
 	return ret;
 }
 
