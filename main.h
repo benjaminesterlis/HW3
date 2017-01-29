@@ -23,5 +23,6 @@
  	} while (0)	
 
 #define CANT_ALLOC "allocation failure"
-
+#define EXIT "Exiting...\n"
 #define SHARP "#"
+#define GLOBAL "Nearest images using global descriptors:\n"

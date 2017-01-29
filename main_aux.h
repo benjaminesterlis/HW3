@@ -2,9 +2,9 @@
 #define MAIN_AUX_H
 
 
-void free_your_pu_sy(void *to_free, int num_to_free);
+void exit_gracefully(void *to_free, int num_to_free);
 
-
+int cmpfunc (const void * a, const void * b);
 
 #endif
 
