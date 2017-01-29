@@ -1,174 +1,173 @@
 #include "main.h"
 
+
+#define CANT_ALLOC "allocation failure"
+#define EXIT "Exiting...\n"
+#define SHARP "#"
+#define GLOBAL "Nearest images using global descriptors:\n"
+#define ENTER_IMAGE "Enter a query image or # to terminate:\n"
+#define N_FEATURE_FAILURE "invalid number of features\n"
+#define ENTER_N_FEATURE "Enter number of features:\n"
+#define N_BINS_FAILURE "invalid nubmer of bins\n"
+#define ENTER_N_BINS "Enter number of bins:\n"
+#define ENTER_IMG_SUFFIX "Enter images suffix:\n"
+#define N_IMG_FAILURE "invalid number of images\n"
+#define ENTER_N_IMG "Enter number of images:\n"
+#define ENTER_IMG_PREFIX "Enter images prefix:\n"
+#define ENTER_DIR_PATH "Enter images directory path:\n"
+#define CURRENT_IMAGE "Enter a query image or # to termiante:\n"
+#define STRING "%s" //overkill
+
+#define error_msg_ret(msg,ret)							\
+ 	do {												\
+ 		printf("An error occurred - %s\n",(msg));		\
+ 		return (ret);									\
+ 	} while (0)	
+
 int main(void)
 {
 	int err_flag = 0;
-	SPBQueue *kClosest;
+	SPBPQueue *kClosest;
 	SPPoint*** hist;
 	SPPoint*** sift; 
 	SPPoint **query_hist;
 	SPPoint **query_sift;
+	int min_index;
 	char img_dir_path[1024];
 	char img_prefix[1024];
 	char img_suffix[1024];
 	char input_image[1024];
-	char *current_image[1024];
-	char *SPBQueue_MGS[1024];
+	char current_image[1024];
+	SP_BPQUEUE_MSG SPBQueue_MGS;
 	int nImg;
 	int nBins;
 	int nFeaturesToExtract;
 	int *nFeatures;
 	int nFeaturesQ;
-	int i;
-	int *indexes;
+	int i, j;
 	int *Img_Indexes;
 	int *current_feature_best_k;
 	int k = 5; /***** how many indexes to save,deafult is 5 *****/
 
 	//scanning from user	
-	printf("Enter images directory path:\n");
-	scanf("%s",&img_dir_path);
+	printf(ENTER_DIR_PATH);
+	scanf(STRING,img_dir_path);
 
-	printf("Enter images prefix:\n");
-	scanf("%s",&img_prefix);
+	printf(ENTER_IMG_PREFIX);
+	scanf(STRING,img_prefix);
 
-	printf("Enter number of images:\n");
+	printf(ENTER_N_IMG);
 	scanf("%d",&nImg);
 	if ( nImg < 1)
-		error_msg_ret("invalid number of images\n",-1);
+		error_msg_ret(N_IMG_FAILURE,-1);
 
 	
-	printf("Enter images suffix:\n");
-	scanf("%s",img_suffix);
+	printf(ENTER_IMG_SUFFIX);
+	scanf(STRING,img_suffix);
 
-	printf("Enter number of bins:\n");
-	scanf("%s",&nBins);
+	printf(ENTER_N_BINS);
+	scanf("%d",&nBins);
 	if(nBins < 1 || nBins > 255)
-		error_msg_ret("invalid nubmer of bins\n",-1);
+		error_msg_ret(N_BINS_FAILURE,-1);
 
-	pritnf("Enter number of features:\n");
+	printf(ENTER_N_FEATURE);
 	scanf("%d",&nFeaturesToExtract);
 	if( nFeaturesToExtract < 1)
-		error_msg_ret("invalid number of features\n",-1);
+		error_msg_ret(N_FEATURE_FAILURE,-1);
 
-	if ((nFeatures = (int *)malloc(sizeof(int) * nImg+1)) == NULL)
-	{
+	if ((nFeatures = (int *)malloc(sizeof(int) * nImg+1)) == NULL){
 		err_flag = 1;
 		goto exit;
 	}
 
 
 	// calculate RGB histogram
-	if ((hist = (SPPoint ***)malloc(sizeof(SPPoint **) * nImg)) == NULL)
-	{
+	if ((hist = (SPPoint ***)malloc(sizeof(SPPoint **) * nImg)) == NULL){
 		err_flag = 1;
 		goto sec3;
 	}
 
 
-	if( (sift = (SPPoint ***)malloc(sizeof(SPPoint **) * nImg)) == NULL)
-	{
+	if( (sift = (SPPoint ***)malloc(sizeof(SPPoint **) * nImg)) == NULL){
 		err_flag = 1;
 		goto sec2;
 	}
 
-	for (i = 0; i < nImg; ++i)
-	{
-		sprintf(input_image, "%s%s%d.%s", img_dir_path, img_prefix,i, img_suffix);
+	for (i = 0; i < nImg; ++i){
+		sprintf(input_image, "%s%s%d%s", img_dir_path, img_prefix,i, img_suffix);
 		hist[i] = spGetRGBHist(input_image, i, nBins);
-		sift[i] = spGetSiftDescriptors(input_image, i,
-											 nFeaturesToExtract, nFeatures[i]);
+		sift[i] = spGetSiftDescriptors(input_image, i, nFeaturesToExtract, &nFeatures[i]);
 	}
 
+	printf(CURRENT_IMAGE);
+	scanf(STRING, current_image);
 	
-	printf("Enter a query image or # to terminate:\n");
-	scantf("%s",&current_image);
-	
-
-	if ((kClosest = spBPQueueCreate(k)) == NULL)
-	{
+	if ((kClosest = spBPQueueCreate(k)) == NULL){
 		err_flag = 1;
 		goto sec3;
 	}
 
-
-	while(strcmp(current_image,SHARP) != 0)
-	{
+	while(strcmp(current_image,SHARP) != 0){
 		//calc for global descriptor
 		query_hist = spGetRGBHist(current_image,nImg,nBins);
-		for( i = 0; i < nImg; i++)
-		{
+		for( i = 0; i < nImg; i++){
+			printf("Images NUmber:%d\n",i);
 			SPBQueue_MGS = spBPQueueEnqueue(kClosest,i,
 										spRGBHistL2Distance(query_hist,hist[i]));
-			if (SP_BPQUEUE_SUCCESS != SPBQueue_MGS)
-			{
+			if (SP_BPQUEUE_SUCCESS != SPBQueue_MGS){
 				err_flag = 1;
 				goto sec4;
 			}
 		}
-
+		printf("Here\n");
 		// print for globar descriptor
 		printf(GLOBAL);
-		
-		for (i = 0; i < k-1; ++i)
-		{
-			min_index = (int)spBPQueueMinValue(length_l2)
-			if(min_index == -1)
-			{
+		for (i = 0; i < k-1; ++i){
+			min_index = (int)spBPQueueMinValue(kClosest);
+			if(min_index == -1){
 				err_flag = 1;
 				goto sec4;
 			}
 			printf("%d, ", min_index);
-			if(spBPQueueDequeue(length_l2) != SP_BPQUEUE_SUCCESS)
-			{
+			if(spBPQueueDequeue(kClosest) != SP_BPQUEUE_SUCCESS){
 				err_flag = 1;
 				goto sec4;
 			} 
 		}
 
-		min_index = (int)spBPQueueMinValue(length_l2)
-		if(min_index == -1)
-		{
+		min_index = (int)spBPQueueMinValue(kClosest);
+		if(min_index == -1){
 			err_flag = 1;
 			goto sec4;
 		}
 		printf("%d\n",min_index);
-		if(spBPQueueDequeue(length_l2) != SP_BPQUEUE_SUCCESS)
-		{
+		if(spBPQueueDequeue(kClosest) != SP_BPQUEUE_SUCCESS){
 			err_flag = 1;
 			goto sec4;
 		} 
 
 		//for local descriptor
-		query_sift = spGetSiftDescriptors(current_image, nImg,
-										 nFeaturesToExtract, &nFeaturesQ);
+		query_sift = spGetSiftDescriptors(current_image, nImg,nFeaturesToExtract, &nFeaturesQ);
 
 		//malloc for array of Img_indexes
-		if ((Img_Indexes = (int*)calloc( nImg * sizeof(int))) == NULL){
+		if ((Img_Indexes = (int*)calloc( nImg, sizeof(int))) == NULL){
 			err_flag = 1;
 			goto sec5;
 		}
 
-
 		//to get the best k indexes
-		for(i = 0; i < nFeaturesQ; ++i)
-		{
-			current_feature_best_k = spBestSIFTL2SquaredDistance(k,query_sift[i],
-									sift, nImg, nFeatures); 
+		for(i = 0; i < nFeaturesQ; ++i){
+			current_feature_best_k = spBestSIFTL2SquaredDistance(k,query_sift[i], sift, nImg, nFeatures); 
 			for (j = 0; j < k; j++)
 				Img_Indexes[current_feature_best_k[j]]++;
 		}	
 		qsort(Img_Indexes, k, sizeof(int), cmpfunc);
 
-		for (i = 0; i < k-1; i++)
-		{
+		for (i = 0; i < k-1; i++){
 			printf("%d, ", Img_Indexes[i]);
 		}
 		printf("%d\n",Img_Indexes[i]);
-
-
 	}
-
 
 	//free section
 	sec5:
@@ -180,15 +179,12 @@ int main(void)
 		free(sift);//free all that inside
 	sec2:
 		free(hist);//free all that inside
-	sec1:
 		free(nFeatures);
-
 	exit:
 	
 	printf(EXIT);
-	if (err_flag)
-	{
-		error_msg(CANT_ALLOC);
+	if (err_flag){
+		error_msg_ret(CANT_ALLOC,-1);
 		return -1;
 	}
 	return 0;

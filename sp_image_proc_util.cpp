@@ -8,6 +8,7 @@
 #include <vector>
 #include <cstdio>
 #include <iostream>
+#include <unistd.h>
 
 using namespace cv;
 using namespace std;
@@ -40,7 +41,7 @@ SPPoint** spGetRGBHist(const char* str,int imageIndex, int nBins){
 	int i;
 	Mat src;
 	Mat b_hist, g_hist, r_hist;
-	// Set the ranges ( for B,G,R) )
+	// Set the ranges ( for B,G,R )
 	float range[] = { 0, 256 };
 	const float* histRange = { range };
 	double* data;
@@ -53,10 +54,10 @@ SPPoint** spGetRGBHist(const char* str,int imageIndex, int nBins){
 		report_error("can't allocate memory for Histogram");
 
 	//Load image
-	if((src = imread(str,CV_LOAD_IMAGE_COLOR)).empty() ){}
+	if((src = imread(str,CV_LOAD_IMAGE_COLOR)).empty() ){
 		printf("Image cannot be loaded - %s:\n",str);
-		exit();	
-		}
+		exit(-1);	
+	}
 	/// Separate the image in 3 places ( B, G and R )
 	vector<Mat> bgr_planes;
 	split(src, bgr_planes);
@@ -126,10 +127,11 @@ SPPoint** spGetSiftDescriptors(const char* str, int imageIndex,
 
 	*nFeatures = ds1.rows;
 
+
 	if ((SIFT = (SPPoint**)malloc(sizeof(SPPoint*)* (*nFeatures))) == NULL )
 		report_error("can't allocate memory for SIFT");
 
-	for (i = 0; i < *nFeatures; ++i)
+	for (i = 0; i < ds1.rows; ++i)
 	{
 		for (j = 0; j < 128 ; ++j)
 			data[j] = cvRound(ds1.at<float>(j,i));
