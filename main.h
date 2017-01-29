@@ -1,0 +1,29 @@
+#include "sp_image_proc_util.h"
+#include "main_aux.h"
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/xfeatures2d.hpp>//SiftDescriptorExtractor
+#include <opencv2/features2d.hpp>
+#include <vector>
+#include <opencv2/core.hpp>// Mat
+#include <opencv2/imgcodecs.hpp>//imread
+#include <opencv2/highgui.hpp> //imshow, drawKeypoints, waitKey
+#include <cstdio>
+#include <iostream>
+
+
+#define error_msg_ret(msg,ret)							\
+ 	do {												\
+ 		printf("An error occurred - %s",msg);			\
+ 		return (ret);									\
+ 	} while (0)	
+#define error_msg(msg)									\
+ 	do {												\
+ 		printf("An error occurred - %s",msg);			\									\
+ 	} while (0)	
+
+#define CANT_ALLOC "can not allocate memory for"
+
+#define N_Feature_Alloc_Error_MSG CANT_ALLOC "nFeaturess array"
+#define HIST_Alloc_Error_MSG CANT_ALLOC "histogram array"  
+#define SIFT_Alloc_Error_MSG CANT_ALLOC "sift array"  
