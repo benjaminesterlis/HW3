@@ -22,8 +22,6 @@
  		printf("An error occurred - %s",msg);			\									\
  	} while (0)	
 
-#define CANT_ALLOC "can not allocate memory for"
+#define CANT_ALLOC "allocation failure"
 
-#define N_Feature_Alloc_Error_MSG CANT_ALLOC "nFeaturess array"
-#define HIST_Alloc_Error_MSG CANT_ALLOC "histogram array"  
-#define SIFT_Alloc_Error_MSG CANT_ALLOC "sift array"  
+#define SHARP "#"
